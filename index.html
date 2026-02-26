@@ -2,248 +2,572 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>DriveSafe — Hệ thống giám sát lái xe AI</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DriveSafe</title>
 <style>
-  
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap');
-  :root {
-    --bg:#020c14;--panel:#071828;--border:#0a3d62;
-    --accent:#00d4ff;--accent2:#00ff88;--warn:#ff6b35;--danger:#ff1744;
-    --text:#c8e6f5;--dim:#3a6d8a;--grid:rgba(0,212,255,0.04);
-  }
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;min-height:100vh;overflow-x:hidden}
-  body::before{content:'';position:fixed;inset:0;
-    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-    background-size:40px 40px;pointer-events:none;z-index:0}
-  header{position:relative;z-index:10;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;
-    border-bottom:1px solid var(--border);background:linear-gradient(180deg,rgba(0,212,255,0.06) 0%,transparent 100%)}
-  .logo{font-family:'Orbitron',monospace;font-size:1.4rem;font-weight:900;color:var(--accent);letter-spacing:.15em;text-shadow:0 0 20px rgba(0,212,255,0.5)}
-  .logo span{color:var(--accent2)}
-  .header-status{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--dim);text-align:right;line-height:1.8}
-  .main{position:relative;z-index:1;display:grid;grid-template-columns:1fr 320px;gap:16px;padding:16px 20px;max-width:1300px;margin:0 auto}
-  .camera-panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden}
-  .camera-wrap{position:relative;aspect-ratio:4/3;background:#000;overflow:hidden}
-  #videoEl{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
-  #canvasEl{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);pointer-events:none}
-  .cam-overlay{position:absolute;inset:0;pointer-events:none;border:2px solid var(--accent);box-shadow:inset 0 0 40px rgba(0,212,255,0.1)}
-  .cam-overlay::before{content:'';position:absolute;top:-1px;left:-1px;width:20px;height:20px;border-top:3px solid var(--accent);border-left:3px solid var(--accent)}
-  .cam-overlay::after{content:'';position:absolute;bottom:-1px;right:-1px;width:20px;height:20px;border-bottom:3px solid var(--accent);border-right:3px solid var(--accent)}
-  .scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(0,212,255,0.6),transparent);animation:scan 3s linear infinite;pointer-events:none}
-  @keyframes scan{0%{top:0;opacity:1}100%{top:100%;opacity:0}}
-  .cam-label{position:absolute;top:10px;left:10px;font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--accent);background:rgba(2,12,20,0.85);padding:3px 8px;border:1px solid rgba(0,212,255,0.3)}
-  .fps-label{position:absolute;top:10px;right:10px;font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--dim);background:rgba(2,12,20,0.85);padding:3px 8px;border:1px solid var(--border)}
-  .cam-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(2,12,20,0.95)}
-  .cam-placeholder p{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--dim);text-align:center;line-height:1.7}
-  .alert-banner{padding:0 20px;min-height:50px;display:flex;align-items:center;justify-content:center;gap:10px;
-    font-family:'Orbitron',monospace;font-size:.8rem;letter-spacing:.1em;font-weight:700;transition:all .3s;border-top:1px solid var(--border)}
-  .alert-banner.safe{color:var(--accent2);background:rgba(0,255,136,0.05)}
-  .alert-banner.warn{color:var(--warn);background:rgba(255,107,53,0.08);animation:pw 1s infinite}
-  .alert-banner.danger{color:var(--danger);background:rgba(255,23,68,0.1);animation:pd .5s infinite}
-  @keyframes pw{0%,100%{opacity:1}50%{opacity:.6}}
-  @keyframes pd{0%,100%{opacity:1}50%{opacity:.4}}
-  .alert-dot{width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
-  .controls{display:flex;gap:10px;padding:14px 16px;border-top:1px solid var(--border)}
-  .btn{flex:1;padding:11px 16px;font-family:'Orbitron',monospace;font-size:.7rem;font-weight:700;letter-spacing:.1em;border:none;cursor:pointer;text-transform:uppercase;transition:all .2s;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)}
-  .btn-start{background:linear-gradient(135deg,#004d40,#00897b);color:#a7ffeb;box-shadow:0 0 20px rgba(0,137,123,.3)}
-  .btn-stop{background:linear-gradient(135deg,#4a0000,#b71c1c);color:#ffcdd2;box-shadow:0 0 20px rgba(183,28,28,.3)}
-  .right-panel{display:flex;flex-direction:column;gap:12px}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden}
-  .card-header{padding:9px 14px;background:rgba(0,212,255,0.04);border-bottom:1px solid var(--border);
-    font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--dim);letter-spacing:.15em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
-  .metrics{padding:10px 14px;display:flex;flex-direction:column;gap:9px}
-  .metric-label{font-size:.7rem;color:var(--dim);font-family:'Share Tech Mono',monospace}
-  .metric-value{font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700}
-  .bar-wrap{width:100%;margin-top:4px;height:3px;background:rgba(0,212,255,0.1);border-radius:2px;overflow:hidden}
-  .bar{height:100%;border-radius:2px;transition:width .2s,background .3s;background:var(--accent2)}
-  .badge{font-family:'Share Tech Mono',monospace;font-size:.65rem;padding:2px 8px;border-radius:2px;letter-spacing:.06em}
-  .badge.open{background:rgba(0,255,136,0.15);color:var(--accent2);border:1px solid rgba(0,255,136,0.3)}
-  .badge.closed{background:rgba(255,107,53,0.15);color:var(--warn);border:1px solid rgba(255,107,53,0.3)}
-  .gauge-section{padding:12px 14px 14px}
-  .gauge-track{width:100%;height:7px;background:rgba(0,212,255,0.08);border-radius:4px;position:relative;margin-bottom:4px}
-  .gauge-cursor{position:absolute;top:-5px;width:16px;height:16px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);transform:translateX(-50%);left:50%}
-  .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border)}
-  .stat-cell{background:var(--panel);padding:10px 8px;text-align:center}
-  .stat-num{font-family:'Orbitron',monospace;font-size:1.3rem;font-weight:900;color:var(--accent);line-height:1}
-  .stat-label{font-family:'Share Tech Mono',monospace;font-size:.5rem;color:var(--dim);margin-top:3px;text-transform:uppercase}
-  .log-body{padding:8px 14px;max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:3px}
-  .log-entry{font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--dim);padding:2px 7px;border-left:2px solid var(--border);line-height:1.4}
-  .err-box{margin:12px 16px;padding:10px 14px;background:rgba(255,23,68,0.08);border:1px solid rgba(255,23,68,0.3);border-radius:3px;font-family:'Share Tech Mono',monospace;font-size:.65rem;color:var(--danger);line-height:1.6;display:none}
-  @media(max-width:860px){.main{grid-template-columns:1fr}.right-panel{display:grid;grid-template-columns:1fr 1fr}}
-  @media(max-width:560px){.right-panel{grid-template-columns:1fr}.main{padding:10px}}
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: #0a0a0a;
+  color: #fff;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HEADER ── */
+header {
+  background: #111;
+  border-bottom: 3px solid #f0b000;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.logo {
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  color: #f0b000;
+}
+.logo span { color: #fff; }
+.authors {
+  font-size: .7rem;
+  color: #888;
+  text-align: center;
+  line-height: 1.7;
+}
+.authors strong { color: #bbb; }
+.clock {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f0b000;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.clock small { display:block; font-size:.6rem; color:#666; font-weight:400; }
+
+/* ── MAIN LAYOUT ── */
+.main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 12px;
+  padding: 12px;
+}
+
+/* ── CAMERA ── */
+.cam-card {
+  background: #111;
+  border: 2px solid #222;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.cam-wrap {
+  position: relative;
+  flex: 1;
+  background: #000;
+  min-height: 300px;
+}
+video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  display: block;
+}
+canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  transform: scaleX(-1);
+  pointer-events: none;
+}
+.cam-placeholder {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 14px;
+  background: #0a0a0a;
+  color: #444;
+}
+.cam-placeholder svg { opacity: .4; }
+.cam-placeholder p { font-size: .8rem; color: #555; text-align: center; line-height: 1.6; }
+.fps-tag {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(0,0,0,.7);
+  color: #888;
+  font-size: .65rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+/* ── ALERT BANNER ── */
+.alert-banner {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  transition: background .3s, color .3s;
+}
+.alert-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.15);
+}
+.alert-banner.safe    { background: #0f2e1a; color: #2ecc71; }
+.alert-banner.warn    { background: #2e1e00; color: #f0b000; animation: blink-warn .9s infinite; }
+.alert-banner.danger  { background: #2e0000; color: #ff3333; animation: blink-danger .4s infinite; }
+@keyframes blink-warn   { 0%,100%{opacity:1} 50%{opacity:.5} }
+@keyframes blink-danger { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── BUTTONS ── */
+.btns { display: flex; gap: 10px; padding: 12px; background: #0d0d0d; }
+.btn {
+  flex: 1; padding: 14px;
+  font-size: .85rem; font-weight: 700;
+  border: none; border-radius: 8px;
+  cursor: pointer; letter-spacing: .05em;
+  text-transform: uppercase;
+  transition: opacity .2s, transform .1s;
+}
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .3; cursor: not-allowed; }
+.btn-start { background: #f0b000; color: #000; }
+.btn-start:hover:not(:disabled) { background: #ffc107; }
+.btn-stop  { background: #c0392b; color: #fff; }
+.btn-stop:hover:not(:disabled)  { background: #e74c3c; }
+
+/* ── ERROR ── */
+.err-box {
+  display: none;
+  margin: 8px 12px;
+  padding: 10px 14px;
+  background: #1a0000;
+  border-left: 4px solid #ff3333;
+  border-radius: 4px;
+  font-size: .72rem;
+  color: #ff8888;
+  line-height: 1.6;
+}
+
+/* ── RIGHT PANEL ── */
+.right { display: flex; flex-direction: column; gap: 10px; }
+
+/* ── METRIC CARD ── */
+.card {
+  background: #111;
+  border: 2px solid #1e1e1e;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.card-title {
+  background: #1a1a1a;
+  padding: 8px 14px;
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: #666;
+  border-bottom: 1px solid #222;
+}
+
+/* Eye / Mouth status blocks */
+.status-block {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.status-label { font-size: .75rem; color: #777; }
+.status-val {
+  font-size: 1.1rem;
+  font-weight: 900;
+  letter-spacing: .04em;
+}
+.val-ok   { color: #2ecc71; }
+.val-warn { color: #f0b000; }
+.val-danger { color: #ff3333; }
+
+.bar-wrap {
+  height: 6px;
+  background: #1e1e1e;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+.bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .2s, background .3s;
+}
+
+/* Stats */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: #1e1e1e;
+}
+.stat-cell {
+  background: #111;
+  padding: 12px 6px;
+  text-align: center;
+}
+.stat-num {
+  font-size: 1.8rem;
+  font-weight: 900;
+  line-height: 1;
+  color: #f0b000;
+}
+.stat-label { font-size: .6rem; color: #666; margin-top: 3px; text-transform: uppercase; }
+
+/* Head angle */
+.angle-block { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.angle-row { display: flex; justify-content: space-between; align-items: center; }
+.angle-label { font-size: .72rem; color: #666; }
+.angle-val { font-size: 1.1rem; font-weight: 900; }
+
+.gauge {
+  position: relative;
+  height: 10px;
+  background: #1e1e1e;
+  border-radius: 5px;
+  overflow: visible;
+}
+.gauge-safe {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 33%; width: 34%;
+  background: rgba(46,204,113,.2);
+  border-radius: 5px;
+}
+.gauge-cursor {
+  position: absolute;
+  top: -4px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  transition: left .15s, background .3s;
+  left: 50%;
+  border: 3px solid #000;
+}
+
+/* Log */
+.log-body {
+  padding: 8px 12px;
+  max-height: 130px;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.log-body::-webkit-scrollbar { width: 3px; }
+.log-body::-webkit-scrollbar-thumb { background: #333; }
+.log-entry {
+  font-size: .62rem;
+  color: #555;
+  padding: 2px 6px;
+  border-left: 2px solid #222;
+  line-height: 1.4;
+}
+.log-entry.info   { color: #4a9eff; border-color: #4a9eff; }
+.log-entry.warn   { color: #f0b000; border-color: #f0b000; }
+.log-entry.danger { color: #ff3333; border-color: #ff3333; }
+
+/* Responsive */
+@media (max-width: 720px) {
+  .main { grid-template-columns: 1fr; }
+  .right { display: grid; grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .right { grid-template-columns: 1fr; }
+  .main { padding: 8px; gap: 8px; }
+  header { padding: 10px 12px; }
+  .logo { font-size: 1.3rem; }
+}
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo">DRIVE<span>SAFE</span></div>
-  <div class="header-status">
-    <div id="sysTime">--:--:--</div>
-    <div id="sysStatus" style="color:var(--dim)">CHỜ</div>
+  <div class="authors">
+    <strong>Lại Thị Thảo Quyên · Hoàng Đình Quốc Đoàn · Từ Huy Phát</strong>
+  </div>
+  <div class="clock">
+    <span id="clock">--:--:--</span>
+    <small id="sysStatus">CHỜ</small>
   </div>
 </header>
 
 <div class="main">
-  <div class="camera-panel">
-    <div class="camera-wrap">
+
+  <!-- Camera -->
+  <div class="cam-card">
+    <div class="cam-wrap">
       <video id="videoEl" playsinline autoplay muted></video>
       <canvas id="canvasEl"></canvas>
-      <div class="cam-overlay"><div class="scan-line"></div></div>
-      <div class="cam-label">CAM-01 // AI GIÁM SÁT</div>
-      <div class="fps-label" id="fpsLabel">0 FPS</div>
+      <div class="fps-tag" id="fpsLabel">0 FPS</div>
       <div class="cam-placeholder" id="camPlaceholder">
-        <p>Nhấn <strong style="color:var(--accent)">BẮT ĐẦU</strong> để kích hoạt camera</p>
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2">
+          <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+        </svg>
+        <p>Nhấn <strong style="color:#f0b000">BẮT ĐẦU</strong> để<br>kích hoạt camera</p>
       </div>
     </div>
+
     <div class="err-box" id="errBox"></div>
+
     <div class="alert-banner safe" id="alertBanner">
       <div class="alert-dot"></div>
       <span id="alertText">HỆ THỐNG SẴN SÀNG</span>
     </div>
-    <div class="controls">
+
+    <div class="btns">
       <button class="btn btn-start" id="btnStart" onclick="startMonitor()">▶ BẮT ĐẦU GIÁM SÁT</button>
       <button class="btn btn-stop"  id="btnStop"  onclick="stopMonitor()" disabled>■ DỪNG</button>
     </div>
   </div>
 
-  <div class="right-panel">
+  <!-- Right -->
+  <div class="right">
+
+    <!-- Mắt & Miệng -->
     <div class="card">
-      <div class="card-header">Khuôn mặt</div>
-      <div class="metrics">
+      <div class="card-title">Trạng thái khuôn mặt</div>
+      <div class="status-block">
         <div>
-          <div style="display:flex;justify-content:space-between">
-            <span class="metric-label">MẮT</span>
-            <span class="badge open" id="eyeStatus">MỞ</span>
+          <div class="status-row">
+            <span class="status-label">👁 MẮT</span>
+            <span class="status-val val-ok" id="eyeStatus">MỞ</span>
           </div>
           <div class="bar-wrap"><div class="bar" id="earBar" style="width:0%"></div></div>
+          <div style="font-size:.62rem;color:#444;margin-top:3px">EAR: <span id="earValue">—</span></div>
         </div>
         <div>
-          <div style="display:flex;justify-content:space-between">
-            <span class="metric-label">MIỆNG</span>
-            <span class="badge" id="mouthStatus">BÌNH THƯỜNG</span>
+          <div class="status-row">
+            <span class="status-label">😮 MIỆNG</span>
+            <span class="status-val val-ok" id="mouthStatus">BÌNH THƯỜNG</span>
           </div>
-          <div class="bar-wrap"><div class="bar" id="marBar" style="width:0%;background:var(--accent)"></div></div>
+          <div class="bar-wrap"><div class="bar" id="marBar" style="width:0%;background:#4a9eff"></div></div>
+          <div style="font-size:.62rem;color:#444;margin-top:3px">MAR: <span id="marValue">—</span></div>
         </div>
       </div>
     </div>
 
+    <!-- Hướng nhìn -->
     <div class="card">
-      <div class="card-header">Hướng nhìn</div>
-      <div class="gauge-section">
-        <div class="gauge-track"><div class="gauge-cursor" id="gaugeCursor"></div></div>
-        <div style="display:flex;justify-content:space-between;margin-top:10px">
-          <span class="metric-label">GÓC NGANG</span>
-          <span class="metric-value" id="yawValue">0°</span>
+      <div class="card-title">Hướng nhìn</div>
+      <div class="angle-block">
+        <div class="angle-row">
+          <span class="angle-label">↔ Ngang (Yaw)</span>
+          <span class="angle-val" id="yawValue" style="color:#f0b000">0°</span>
+        </div>
+        <div class="gauge">
+          <div class="gauge-safe"></div>
+          <div class="gauge-cursor" id="gaugeCursor" style="background:#2ecc71;left:50%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.58rem;color:#444;margin-top:2px">
+          <span>← 60°</span><span>TRUNG TÂM</span><span>60° →</span>
+        </div>
+        <div class="angle-row" style="margin-top:4px">
+          <span class="angle-label">↕ Dọc (Pitch)</span>
+          <span class="angle-val" id="pitchValue" style="color:#f0b000">0°</span>
+        </div>
+        <div class="angle-row">
+          <span class="angle-label">Trạng thái</span>
+          <span class="status-val val-ok" id="poseStatus">THẲNG</span>
         </div>
       </div>
     </div>
 
+    <!-- Thống kê -->
     <div class="card">
-      <div class="card-header">Thống kê</div>
+      <div class="card-title">Thống kê chuyến đi</div>
       <div class="stats-grid">
-        <div class="stat-cell"><div class="stat-num" id="statDrowsy">0</div><div class="stat-label">Ngủ gật</div></div>
-        <div class="stat-cell"><div class="stat-num" id="statYawn">0</div><div class="stat-label">Ngáp</div></div>
-        <div class="stat-cell"><div class="stat-num" id="statDistract">0</div><div class="stat-label">Lơ đãng</div></div>
+        <div class="stat-cell">
+          <div class="stat-num" id="statDrowsy" style="color:#ff3333">0</div>
+          <div class="stat-label">Buồn ngủ</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-num" id="statYawn" style="color:#f0b000">0</div>
+          <div class="stat-label">Ngáp</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-num" id="statDistract" style="color:#4a9eff">0</div>
+          <div class="stat-label">Lơ đãng</div>
+        </div>
       </div>
     </div>
 
+    <!-- Nhật ký -->
     <div class="card">
-      <div class="card-header">Nhật ký</div>
+      <div class="card-title">Nhật ký sự kiện</div>
       <div class="log-body" id="logBody">
-        <div class="log-entry">HỆ THỐNG KHỞI ĐỘNG</div>
+        <div class="log-entry info">Hệ thống khởi động</div>
       </div>
     </div>
+
   </div>
 </div>
 
 <script>
-// Logic âm thanh báo động liên tục cho điện thoại & máy tính
-let audioCtx = null;
-let alertInterval = null;
-const alertCooldown = {};
+// ================================================================
+// CONFIG
+// ================================================================
+const EAR_THRESHOLD   = 0.20;
+const EAR_CONSEC_SEC  = 2.0;
+const MAR_THRESHOLD   = 0.55;
+const MAR_CONSEC_SEC  = 1.5;
+const YAW_THRESHOLD   = 30;
+const PITCH_THRESHOLD = 25;
+const POSE_CONSEC_SEC = 3.0;
 
-function getAC() { 
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  return audioCtx; 
-}
+// ================================================================
+// State
+// ================================================================
+let isRunning=false, faceMesh=null, animId=null, ctx2d=null;
+let earClosedStart=null, marOpenStart=null, poseAbnStart=null;
+let lastFpsTime=performance.now(), frameCount=0;
+let stats={drowsy:0,yawn:0,distract:0};
+let alertCooldown={};
+let mediapipeReady=false;
 
-function playEmergencyAlarm() {
-  if (alertInterval) return;
-  const ac = getAC();
-  alertInterval = setInterval(() => {
-    const o = ac.createOscillator();
-    const g = ac.createGain();
-    o.connect(g); g.connect(ac.destination);
-    o.type = 'sawtooth';
-    o.frequency.setValueAtTime(880, ac.currentTime);
-    o.frequency.exponentialRampToValueAtTime(440, ac.currentTime + 0.15);
-    g.gain.setValueAtTime(0.6, ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, ac.currentTime + 0.15);
-    o.start(); o.stop(ac.currentTime + 0.15);
-  }, 250); 
-}
-
-function stopEmergencyAlarm() {
-  if (alertInterval) { clearInterval(alertInterval); alertInterval = null; }
-}
-
-function beep(freq=880, dur=0.3, vol=0.4, type='sine') {
-  try {
-    const ac=getAC(), o=ac.createOscillator(), g=ac.createGain();
-    o.connect(g); g.connect(ac.destination);
-    o.type=type; o.frequency.value=freq;
-    g.gain.setValueAtTime(vol,ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+dur);
-    o.start(); o.stop(ac.currentTime+dur);
-  } catch(e){}
-}
-
-function alertSound(type) {
-  const now = Date.now();
-  if (type === 'drowsy') {
-    playEmergencyAlarm();
-  } else {
-    if (alertCooldown[type] && now - alertCooldown[type] < 3000) return;
-    alertCooldown[type] = now;
-    if (type === 'yawn') beep(600, 0.5, 0.3, 'sine');
-    if (type === 'distract') beep(880, 0.2, 0.4, 'square');
-  }
-}
-
-// MediaPipe & Thuật toán
-const EAR_THRESHOLD = 0.20;
-const EAR_CONSEC_SEC = 1.5;
-const MAR_THRESHOLD = 0.55;
-const YAW_THRESHOLD = 30;
-
-let isRunning = false, faceMesh = null, ctx2d = null;
-let earClosedStart = null, lastFpsTime = performance.now(), frameCount = 0;
-let stats = { drowsy:0, yawn:0, distract:0 };
-let mediapipeReady = false;
-
+// ================================================================
+// Script loader
+// ================================================================
 function loadScript(src) {
-  return new Promise((res, rej) => {
-    const s = document.createElement('script');
-    s.src = src; s.crossOrigin = 'anonymous';
-    s.onload = res; s.onerror = rej;
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src=src; s.crossOrigin='anonymous';
+    s.onload=res; s.onerror=()=>rej(new Error('Không tải được: '+src));
     document.head.appendChild(s);
   });
 }
 
-function d2(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
-function ear(lm,idx) {
-  const p=idx.map(i=>lm[i]);
-  return (d2(p[1],p[5])+d2(p[2],p[4]))/(2*d2(p[0],p[3]));
+// ================================================================
+// Audio
+// ================================================================
+let audioCtx=null;
+function getAC(){ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+
+function beep(freq=880,dur=0.3,vol=1.0,type='sine'){
+  try{
+    const ac=getAC(), o=ac.createOscillator(), g=ac.createGain();
+    const comp=ac.createDynamicsCompressor();
+    comp.threshold.value=-6; comp.knee.value=3; comp.ratio.value=20;
+    comp.attack.value=0; comp.release.value=0.1;
+    o.connect(g); g.connect(comp); comp.connect(ac.destination);
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+dur);
+    o.start(); o.stop(ac.currentTime+dur);
+  }catch(e){}
 }
 
-function onResults(results) {
+function alertSound(type){
+  const now=Date.now();
+  if(alertCooldown[type]&&now-alertCooldown[type]<4000) return;
+  alertCooldown[type]=now;
+  if(type==='drowsy'){
+    [0,400,800].forEach(d=>setTimeout(()=>{ beep(960,.35,1.2,'sawtooth'); setTimeout(()=>beep(660,.25,1.0,'square'),200); },d));
+  }
+  if(type==='yawn'){ beep(700,.4,.9,'sine'); setTimeout(()=>beep(700,.4,.9,'sine'),500); }
+  if(type==='distract'){ [0,180,360].forEach(d=>setTimeout(()=>beep(1100,.15,1.0,'square'),d)); }
+}
+
+// ================================================================
+// Geometry
+// ================================================================
+function d2(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+function calcEAR(lm,idx){ const p=idx.map(i=>lm[i]); return (d2(p[1],p[5])+d2(p[2],p[4]))/(2*d2(p[0],p[3])); }
+function calcMAR(lm){ return d2(lm[13],lm[14])/d2(lm[78],lm[308]); }
+function calcPose(lm){
+  const le=lm[33],re=lm[263],n=lm[1],fh=lm[10],ch=lm[152];
+  const cx=(le.x+re.x)/2, ew=d2(le,re);
+  const yaw=Math.atan2(n.x-cx,ew*.5)*(180/Math.PI)*2.5;
+  const fhh=d2(fh,ch), midY=(fh.y+ch.y)/2;
+  const pitch=-((n.y-midY)/(fhh*.3))*30;
+  return { yaw:Math.max(-60,Math.min(60,yaw)), pitch:Math.max(-45,Math.min(45,pitch)) };
+}
+const LE=[33,160,158,133,153,144], RE=[362,385,387,263,373,380];
+
+// ================================================================
+// UI
+// ================================================================
+function setAlert(level,text){
+  const b=document.getElementById('alertBanner');
+  b.className='alert-banner '+level;
+  document.getElementById('alertText').textContent=text;
+  const s=document.getElementById('sysStatus');
+  s.textContent={safe:'AN TOÀN',warn:'CẢNH BÁO',danger:'NGUY HIỂM'}[level]||level;
+  s.style.color={safe:'#2ecc71',warn:'#f0b000',danger:'#ff3333'}[level]||'#666';
+}
+function setErr(msg){
+  const b=document.getElementById('errBox');
+  b.style.display=msg?'block':'none'; b.textContent=msg?'⚠ '+msg:'';
+}
+function addLog(text,type=''){
+  const now=new Date().toLocaleTimeString('vi-VN');
+  const body=document.getElementById('logBody');
+  const d=document.createElement('div');
+  d.className='log-entry '+type; d.textContent=`[${now}] ${text}`;
+  body.prepend(d);
+  while(body.children.length>60) body.removeChild(body.lastChild);
+}
+
+function updateEye(v){
+  document.getElementById('earValue').textContent=v.toFixed(3);
+  const pct=Math.min(100,v*250);
+  const bar=document.getElementById('earBar');
+  bar.style.width=pct+'%';
+  bar.style.background=v<EAR_THRESHOLD?'#ff3333':'#2ecc71';
+  const el=document.getElementById('eyeStatus');
+  el.textContent=v<EAR_THRESHOLD?'NHẮM':'MỞ';
+  el.className='status-val '+(v<EAR_THRESHOLD?'val-danger':'val-ok');
+}
+function updateMouth(v){
+  document.getElementById('marValue').textContent=v.toFixed(3);
+  const bar=document.getElementById('marBar');
+  bar.style.width=Math.min(100,v*100)+'%';
+  bar.style.background=v>MAR_THRESHOLD?'#f0b000':'#4a9eff';
+  const el=document.getElementById('mouthStatus');
+  el.textContent=v>MAR_THRESHOLD?'NGÁP!':'BÌNH THƯỜNG';
+  el.className='status-val '+(v>MAR_THRESHOLD?'val-warn':'val-ok');
+}
+function updatePose(yaw,pitch){
+  document.getElementById('yawValue').textContent=yaw.toFixed(1)+'°';
+  document.getElementById('pitchValue').textContent=pitch.toFixed(1)+'°';
+  const pct=((yaw+60)/120)*100;
+  const cur=document.getElementById('gaugeCursor');
+  cur.style.left=pct+'%';
+  const away=Math.abs(yaw)>YAW_THRESHOLD||pitch>PITCH_THRESHOLD;
+  cur.style.background=away?'#ff3333':'#2ecc71';
+  const el=document.getElementById('poseStatus');
+  el.textContent=away?'LỆCH':'THẲNG';
+  el.className='status-val '+(away?'val-danger':'val-ok');
+}
+
+// ================================================================
+// Face Mesh callback
+// ================================================================
+function onResults(results){
   const video=document.getElementById('videoEl');
   const canvas=document.getElementById('canvasEl');
+  canvas.width=video.videoWidth||640; canvas.height=video.videoHeight||480;
   if(!ctx2d) ctx2d=canvas.getContext('2d');
-  canvas.width=video.videoWidth; canvas.height=video.videoHeight;
   ctx2d.clearRect(0,0,canvas.width,canvas.height);
 
   frameCount++;
@@ -251,88 +575,151 @@ function onResults(results) {
   if(now-lastFpsTime>=1000){ document.getElementById('fpsLabel').textContent=frameCount+' FPS'; frameCount=0; lastFpsTime=now; }
 
   if(!results.multiFaceLandmarks||!results.multiFaceLandmarks.length){
-    setAlert('warn','KHÔNG THẤY KHUÔN MẶT');
-    stopEmergencyAlarm();
+    setAlert('warn','KHÔNG PHÁT HIỆN KHUÔN MẶT');
     return;
   }
 
   const lm=results.multiFaceLandmarks[0];
-  const slm=lm.map(l=>({x:l.x*canvas.width,y:l.y*canvas.height}));
+  const W=canvas.width, H=canvas.height;
+  const px=l=>({x:l.x*W,y:l.y*H});
+  const slm=lm.map(px);
 
-  const earVal=(ear(slm,[33,160,158,133,153,144])+ear(slm,[362,385,387,263,373,380]))/2;
-  const marVal=d2(slm[13],slm[14])/d2(slm[78],slm[308]);
-  const yaw=(lm[1].x-((lm[33].x+lm[263].x)/2))*250;
+  // Vẽ viền mắt & miệng
+  function drawLoop(idxArr,color,lw=1.5){
+    ctx2d.strokeStyle=color; ctx2d.lineWidth=lw; ctx2d.beginPath();
+    idxArr.forEach((i,j)=>{ const p=slm[i]; j===0?ctx2d.moveTo(p.x,p.y):ctx2d.lineTo(p.x,p.y); });
+    ctx2d.closePath(); ctx2d.stroke();
+  }
+  drawLoop(LE,'rgba(46,204,113,.9)');
+  drawLoop(RE,'rgba(46,204,113,.9)');
+  drawLoop([78,95,88,178,87,14,317,402,318,308,415,310,311,312,13,82,81,80,191],'rgba(240,176,0,.7)');
 
-  // Cập nhật UI
-  document.getElementById('earBar').style.width=(earVal*250)+'%';
-  document.getElementById('eyeStatus').textContent=earVal<EAR_THRESHOLD?'NHẮM':'MỞ';
-  document.getElementById('eyeStatus').className='badge '+(earVal<EAR_THRESHOLD?'closed':'open');
-  document.getElementById('marBar').style.width=(marVal*100)+'%';
-  document.getElementById('gaugeCursor').style.left=((yaw+60)/120*100)+'%';
-  document.getElementById('yawValue').textContent=Math.round(yaw)+'°';
+  // Chỉ số
+  const earVal=(calcEAR(slm,LE)+calcEAR(slm,RE))/2;
+  const marVal=calcMAR(slm);
+  const {yaw,pitch}=calcPose(lm);
+
+  updateEye(earVal); updateMouth(marVal); updatePose(yaw,pitch);
 
   const ts=performance.now()/1000;
+  let level='safe', msg='AN TOÀN — ĐANG THEO DÕI';
+  let nD=false,nY=false,nDist=false;
+
+  // Buồn ngủ
   if(earVal<EAR_THRESHOLD){
     if(!earClosedStart) earClosedStart=ts;
-    if(ts-earClosedStart>=EAR_CONSEC_SEC){
-      setAlert('danger','⚠ CẢNH BÁO: NGỦ GẬT!');
-      alertSound('drowsy');
-      stats.drowsy++; document.getElementById('statDrowsy').textContent=Math.floor(stats.drowsy/10); 
-    }
-  } else {
-    earClosedStart=null;
-    stopEmergencyAlarm();
-    setAlert('safe','AN TOÀN — ĐANG THEO DÕI');
-  }
+    const el=ts-earClosedStart;
+    if(el>=EAR_CONSEC_SEC){ level='danger'; msg='⚠ BUỒN NGỦ! HÃY DỪNG XE NGAY!'; nD=true; alertSound('drowsy'); }
+    else if(el>=1){ level='warn'; msg='MẮT ĐANG NHẮM — CHÚ Ý!'; }
+  } else earClosedStart=null;
 
-  if(marVal>MAR_THRESHOLD) { alertSound('yawn'); stats.yawn++; document.getElementById('statYawn').textContent=Math.floor(stats.yawn/20); }
-  if(Math.abs(yaw)>YAW_THRESHOLD) { alertSound('distract'); stats.distract++; document.getElementById('statDistract').textContent=Math.floor(stats.distract/20); }
+  // Ngáp
+  if(marVal>MAR_THRESHOLD){
+    if(!marOpenStart) marOpenStart=ts;
+    if(ts-marOpenStart>=MAR_CONSEC_SEC){
+      if(level!=='danger') level='warn';
+      msg='PHÁT HIỆN NGÁP — NÊN NGHỈ NGƠI!'; nY=true; alertSound('yawn');
+    }
+  } else marOpenStart=null;
+
+  // Mất tập trung
+  const poseAbn=Math.abs(yaw)>YAW_THRESHOLD||pitch>PITCH_THRESHOLD;
+  if(poseAbn){
+    if(!poseAbnStart) poseAbnStart=ts;
+    const el=ts-poseAbnStart;
+    const reason=pitch>PITCH_THRESHOLD?'NHÌN XUỐNG':(yaw>0?'NHÌN SANG PHẢI':'NHÌN SANG TRÁI');
+    if(el>=POSE_CONSEC_SEC){ if(level!=='danger') level='warn'; msg='⚠ MẤT TẬP TRUNG — '+reason; nDist=true; alertSound('distract'); }
+    else if(el>=1.5&&level==='safe') msg='CHÚ Ý — '+reason;
+  } else poseAbnStart=null;
+
+  setAlert(level,msg);
+
+  if(nD){ stats.drowsy++; document.getElementById('statDrowsy').textContent=stats.drowsy; addLog('BUỒN NGỦ phát hiện','danger'); }
+  if(nY){ stats.yawn++;   document.getElementById('statYawn').textContent=stats.yawn;     addLog('NGÁP phát hiện','warn'); }
+  if(nDist){ stats.distract++; document.getElementById('statDistract').textContent=stats.distract; addLog('MẤT TẬP TRUNG: '+(pitch>PITCH_THRESHOLD?'Cúi đầu':(yaw>0?'Phải':'Trái')),'warn'); }
+
+  // Chấm mũi
+  const nose=slm[1];
+  ctx2d.fillStyle=poseAbn?'#ff3333':'#f0b000';
+  ctx2d.beginPath(); ctx2d.arc(nose.x,nose.y,5,0,Math.PI*2); ctx2d.fill();
 }
 
-async function startMonitor() {
-  try {
+// ================================================================
+// Start / Stop
+// ================================================================
+async function startMonitor(){
+  document.getElementById('btnStart').disabled=true;
+  document.getElementById('btnStop').disabled=false;
+  setErr('');
+  setAlert('safe','ĐANG KHỞI ĐỘNG...');
+  addLog('Đang mở camera...','info');
+
+  try{
     getAC();
-    document.getElementById('btnStart').disabled=true;
-    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
-    document.getElementById('videoEl').srcObject=stream;
+    const stream=await navigator.mediaDevices.getUserMedia({ video:{width:{ideal:640},height:{ideal:480},facingMode:'user'}, audio:false });
+    const video=document.getElementById('videoEl');
+    video.srcObject=stream;
+    await video.play();
     document.getElementById('camPlaceholder').style.display='none';
-    
+    addLog('Camera đã mở','info');
+
     if(!mediapipeReady){
+      setAlert('safe','ĐANG TẢI MÔ HÌNH AI...');
+      addLog('Đang tải MediaPipe...','info');
       await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js');
       await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/face_mesh.js');
       mediapipeReady=true;
+      addLog('Mô hình AI sẵn sàng','info');
     }
 
-    faceMesh=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/${f}`});
-    faceMesh.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.5});
+    faceMesh=new FaceMesh({ locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/${f}` });
+    faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:.5, minTrackingConfidence:.5 });
     faceMesh.onResults(onResults);
 
     isRunning=true;
-    const v=document.getElementById('videoEl');
-    async function loop(){ if(!isRunning)return; await faceMesh.send({image:v}); requestAnimationFrame(loop); }
+    const video2=document.getElementById('videoEl');
+    async function loop(){ if(!isRunning)return; await faceMesh.send({image:video2}); animId=requestAnimationFrame(loop); }
     loop();
 
-    document.getElementById('btnStop').disabled=false;
+    setAlert('safe','AN TOÀN — ĐANG THEO DÕI');
     document.getElementById('sysStatus').textContent='ĐANG CHẠY';
-  } catch(e){ alert("Lỗi camera: " + e.message); }
+    document.getElementById('sysStatus').style.color='#2ecc71';
+    addLog('Giám sát bắt đầu','info');
+
+  }catch(err){
+    console.error(err);
+    document.getElementById('btnStart').disabled=false;
+    document.getElementById('btnStop').disabled=true;
+    document.getElementById('camPlaceholder').style.display='flex';
+    let msg='Lỗi: '+err.message;
+    if(err.name==='NotAllowedError') msg='Quyền camera bị từ chối. Vui lòng cho phép trong cài đặt trình duyệt.';
+    else if(err.name==='NotFoundError') msg='Không tìm thấy camera. Kiểm tra thiết bị.';
+    else if(err.name==='NotReadableError') msg='Camera đang được dùng bởi ứng dụng khác.';
+    setErr(msg); setAlert('warn','LỖI KHỞI ĐỘNG'); addLog(msg,'warn');
+  }
 }
 
-function stopMonitor() {
-  isRunning=false; stopEmergencyAlarm();
-  const v=document.getElementById('videoEl');
-  if(v.srcObject) v.srcObject.getTracks().forEach(t=>t.stop());
+function stopMonitor(){
+  isRunning=false;
+  if(animId){ cancelAnimationFrame(animId); animId=null; }
+  const video=document.getElementById('videoEl');
+  if(video.srcObject){ video.srcObject.getTracks().forEach(t=>t.stop()); video.srcObject=null; }
+  faceMesh=null;
+  const canvas=document.getElementById('canvasEl');
+  if(ctx2d) ctx2d.clearRect(0,0,canvas.width,canvas.height);
+  document.getElementById('camPlaceholder').style.display='flex';
   document.getElementById('btnStart').disabled=false;
   document.getElementById('btnStop').disabled=true;
-  document.getElementById('camPlaceholder').style.display='flex';
+  setAlert('safe','ĐÃ DỪNG GIÁM SÁT');
+  document.getElementById('sysStatus').textContent='CHỜ';
+  document.getElementById('sysStatus').style.color='#666';
+  addLog(`Dừng — Buồn ngủ:${stats.drowsy} Ngáp:${stats.yawn} Lơ đãng:${stats.distract}`,'info');
+  earClosedStart=marOpenStart=poseAbnStart=null;
 }
 
-function setAlert(lv,txt){
-  const b=document.getElementById('alertBanner');
-  b.className='alert-banner '+lv;
-  document.getElementById('alertText').textContent=txt;
-}
-
-setInterval(()=>{ document.getElementById('sysTime').textContent=new Date().toLocaleTimeString('vi-VN'); },1000);
+// Clock
+setInterval(()=>document.getElementById('clock').textContent=new Date().toLocaleTimeString('vi-VN'),1000);
+document.getElementById('clock').textContent=new Date().toLocaleTimeString('vi-VN');
 </script>
 </body>
 </html>
